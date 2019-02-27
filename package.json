@@ -4,6 +4,7 @@
   "description": "A Modern utility for interacting with public spreadsheets",
   "main": "dist/index.js",
   "scripts": {
+    "prepublishOnly": "yarn build",
     "build": "tsc",
     "test:lint": "tslint '{src}/**/*.ts'",
     "lint": "tslint --fix '{src}/**/*.ts'"
