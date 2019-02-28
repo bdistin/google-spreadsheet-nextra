@@ -150,7 +150,7 @@ export default class GoogleSpreadsheet {
 		return this.info;
 	}
 
-	public async addWorksheet(options): Promise<SpreadsheetWorksheet> {
+	public async addWorksheet(options: WorksheetOptions = {}): Promise<SpreadsheetWorksheet> {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 
 		mergeDefault({
@@ -185,7 +185,7 @@ export default class GoogleSpreadsheet {
 		await this.makeFeedRequest(`${GOOGLE_FEED_URL}worksheets/${this.spreadsheetKey}/private/full/${worksheet}`, 'DELETE', null);
 	}
 
-	public async getRows(worksheetID: number, options: RowsQuery): Promise<SpreadsheetRow[]> {
+	public async getRows(worksheetID: number, options: RowsQuery = {}): Promise<SpreadsheetRow[]> {
 		// the first row is used as titles/keys and is not included
 		const query: APIRowQuery = {};
 
