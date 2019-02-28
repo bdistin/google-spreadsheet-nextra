@@ -48,12 +48,35 @@ export interface SpreadsheetInfo {
 	worksheets: Array<SpreadsheetWorksheet>;
 }
 
-export interface SpreadsheetQuery {
+export interface CellsQuery {
 	['min-row']?: number;
 	['max-row']?: number;
 	['min-col']?: number;
 	['max-col']?: number;
 	['return-empty']?: boolean;
+}
+
+export interface APIRowQuery {
+	['start-index']?: number;
+	['max-results']?: number;
+	['orderby']?: string;
+	['reverse']?: string;
+	['sq']?: string;
+}
+
+export interface RowsQuery {
+	offset?: number;
+	limit?: number;
+	orderBy?: string;
+	reverse?: boolean;
+	query?: string;
+}
+
+export interface WorksheetOptions {
+	title?: string;
+	rowCount?: number;
+	colCount?: number;
+	headers?: string[];
 }
 
 export default class GoogleSpreadsheet {
@@ -162,19 +185,15 @@ export default class GoogleSpreadsheet {
 		await this.makeFeedRequest(`${GOOGLE_FEED_URL}worksheets/${this.spreadsheetKey}/private/full/${worksheet}`, 'DELETE', null);
 	}
 
-	public async getRows(worksheetID: number, options): Promise<SpreadsheetRow[]> {
+	public async getRows(worksheetID: number, options: RowsQuery): Promise<SpreadsheetRow[]> {
 		// the first row is used as titles/keys and is not included
-		const query = {};
+		const query: APIRowQuery = {};
 
-		if ( options.offset ) query['start-index'] = options.offset;
-		else if ( options.start ) query['start-index'] = options.start;
-
-		if ( options.limit ) query['max-results'] = options.limit;
-		else if ( options.num ) query['"max-results'] = options.num;
-
-		if ( options.orderby ) query['orderby'] = options.orderby;
-		if ( options.reverse ) query['reverse'] = 'true';
-		if ( options.query ) query['sq'] = options.query;
+		if (options.offset) query['start-index'] = options.offset;
+		if (options.limit) query['max-results'] = options.limit;
+		if (options.orderBy) query['orderby'] = options.orderBy;
+		if (options.reverse) query['reverse'] = 'true';
+		if (options.query) query['sq'] = options.query;
 
 		const { data, xml } = await this.makeFeedRequest(['list', this.spreadsheetKey, worksheetID], 'GET', query);
 		if (!data) throw new Error('No response to getRows call');
@@ -207,13 +226,13 @@ export default class GoogleSpreadsheet {
 		return new SpreadsheetRow(this, data, entriesXML[0]);
 	}
 
-	public async getCells(worksheetID: number, options: SpreadsheetQuery = {}): Promise<SpreadsheetCell[]> {
+	public async getCells(worksheetID: number, options: CellsQuery = {}): Promise<SpreadsheetCell[]> {
 		const { data } = await this.makeFeedRequest(['cells', this.spreadsheetKey, worksheetID], 'GET', options);
 		if (!data) throw new Error('No response to getCells call');
 		return forceArray(data['entry']).map(entry => new SpreadsheetCell(this, this.spreadsheetKey, worksheetID, entry));
 	}
 
-	public async makeFeedRequest(urlParams: string | Array<string | number>, method: HTTP_METHODS, queryOrData: string | SpreadsheetQuery): Promise<{xml: string, data: any}> {
+	public async makeFeedRequest(urlParams: string | Array<string | number>, method: HTTP_METHODS, queryOrData: string | CellsQuery | APIRowQuery): Promise<{xml: string, data: any}> {
 		let url;
 		const headers = {};
 		if (typeof urlParams === 'string') {

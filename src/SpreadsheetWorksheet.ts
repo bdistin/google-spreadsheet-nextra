@@ -1,4 +1,4 @@
-import GoogleSpreadsheet, { SpreadsheetQuery } from './GoogleSpreadsheet';
+import GoogleSpreadsheet, { CellsQuery, RowsQuery } from './GoogleSpreadsheet';
 import { forceArray } from './util';
 import SpreadsheetCell from './SpreadsheetCell';
 import SpreadsheetRow from './SpreadsheetRow';
@@ -67,11 +67,11 @@ export default class SpreadsheetWorksheet {
 		await this.resize(rowCount, colCount);
 	}
 
-	public getRows(options): Promise<SpreadsheetRow[]> {
+	public getRows(options: RowsQuery): Promise<SpreadsheetRow[]> {
 		return this.spreadsheet.getRows(this.id, options);
 	}
 
-	public getCells(options: SpreadsheetQuery = {}): Promise<SpreadsheetCell[]> {
+	public getCells(options: CellsQuery = {}): Promise<SpreadsheetCell[]> {
 		return this.spreadsheet.getCells(this.id, options);
 	}
 
