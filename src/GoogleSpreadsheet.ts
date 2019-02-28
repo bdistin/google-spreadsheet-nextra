@@ -9,7 +9,7 @@ import { promisify } from 'util';
 import SpreadsheetWorksheet from './SpreadsheetWorksheet';
 import SpreadsheetCell from './SpreadsheetCell';
 import SpreadsheetRow from './SpreadsheetRow';
-import { forceArray, mergeDefault, deepClone, xmlSafeColumnName, xmlSafeValue, isObject } from './util';
+import { forceArray, mergeDefault, deepClone, xmlSafeColumnName, xmlSafeValue } from './util';
 
 const parser = new xml2js.Parser({
 	explicitArray: false,
@@ -22,6 +22,7 @@ const GOOGLE_AUTH_SCOPE = ['https://spreadsheets.google.com/feeds'];
 
 const REQUIRE_AUTH_MESSAGE = 'You must authenticate to modify sheet data';
 
+type HTTP_METHODS = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'CONNECT' | 'OPTIONS' | 'TRACE';
 
 export enum GoogleSpreadsheetVisibility {
 	public,
@@ -47,51 +48,54 @@ export interface SpreadsheetInfo {
 	worksheets: Array<SpreadsheetWorksheet>;
 }
 
+export interface SpreadsheetQuery {
+	['min-row']?: number;
+	['max-row']?: number;
+	['min-col']?: number;
+	['max-col']?: number;
+	['return-empty']?: boolean;
+}
+
 export default class GoogleSpreadsheet {
 
 	private googleAuth = null;
 	private visibility = GoogleSpreadsheetVisibility.public;
 	private projection = GoogleSpreadsheetProjection.values;
 	private authMode = GoogleSpreadsheetAuthMode.anonymous;
-	private ssKey: string;
+	private spreadsheetKey: string;
 	private jwtClient: JWT = null;
 	private options;
 
 	public info: SpreadsheetInfo;
 	public worksheets: Array<SpreadsheetWorksheet>;
 
-	constructor(ssKey, authID, options) {
+	constructor(spreadsheetKey: string, authID, options) {
 		this.options = options || {};
-		if (!ssKey) throw new Error('Spreadsheet key not provided');
-		this.ssKey = ssKey;
+		if (!spreadsheetKey) throw new Error('Spreadsheet key not provided');
+		this.spreadsheetKey = spreadsheetKey;
 
 		this.setAuthAndDependencies(authID);
 	}
 
-	private setAuthAndDependencies(auth) {
+	private setAuthAndDependencies(auth: string): void {
 		this.googleAuth = auth;
-		if (!this.options.visibility) {
-			this.visibility = this.googleAuth ? GoogleSpreadsheetVisibility.private : GoogleSpreadsheetVisibility.public;
-		}
-		if (!this.options.projection) {
-			this.projection = this.googleAuth ? GoogleSpreadsheetProjection.full : GoogleSpreadsheetProjection.values;
-		}
+
+		if (!this.options.visibility) this.visibility = this.googleAuth ? GoogleSpreadsheetVisibility.private : GoogleSpreadsheetVisibility.public;
+		if (!this.options.projection) this.projection = this.googleAuth ? GoogleSpreadsheetProjection.full : GoogleSpreadsheetProjection.values;
 	}
 
-	public setAuthToken(auth) {
+	public setAuthToken(auth): void {
 		if (this.authMode === GoogleSpreadsheetAuthMode.anonymous) this.authMode = GoogleSpreadsheetAuthMode.token;
 		this.setAuthAndDependencies(auth);
 	}
 
-	public useServiceAccountAuth(creds) {
-		if (typeof creds === 'string') {
-			creds = require(creds);
-		}
+	public useServiceAccountAuth(creds): Promise<void> {
+		if (typeof creds === 'string') creds = require(creds);
 		this.jwtClient = new JWT(creds.client_email, null, creds.private_key, GOOGLE_AUTH_SCOPE, null);
 		return this.renewJwtAuth();
 	}
 
-	private async renewJwtAuth() {
+	private async renewJwtAuth(): Promise<void> {
 		this.authMode = GoogleSpreadsheetAuthMode.jwt;
 		const credentials = await this.jwtClient.authorize();
 		this.setAuthToken({
@@ -101,12 +105,12 @@ export default class GoogleSpreadsheet {
 		});
 	}
 
-	public get isAuthActive() {
+	public get isAuthActive(): boolean {
 		return !!this.googleAuth;
 	}
 
-	public async getInfo() {
-		const { data } = await this.makeFeedRequest(['worksheets', this.ssKey], 'GET', null);
+	public async getInfo(): Promise<SpreadsheetInfo> {
+		const { data } = await this.makeFeedRequest(['worksheets', this.spreadsheetKey], 'GET', null);
 		if (!data) throw new Error('No response to getInfo call');
 
 		this.info = {
@@ -123,7 +127,7 @@ export default class GoogleSpreadsheet {
 		return this.info;
 	}
 
-	public async addWorksheet(options) {
+	public async addWorksheet(options): Promise<SpreadsheetWorksheet> {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 
 		mergeDefault({
@@ -143,7 +147,7 @@ export default class GoogleSpreadsheet {
 			'</entry>'
 		].join('');
 
-		const { data } = await this.makeFeedRequest( ['worksheets', this.ssKey], 'POST', dataXML);
+		const { data } = await this.makeFeedRequest( ['worksheets', this.spreadsheetKey], 'POST', dataXML);
 
 		const sheet = new SpreadsheetWorksheet(this, data);
 		this.worksheets = this.worksheets || [];
@@ -152,13 +156,13 @@ export default class GoogleSpreadsheet {
 		return sheet;
 	}
 
-	public async removeWorksheet(sheetID) {
+	public async removeWorksheet(worksheet: number | SpreadsheetWorksheet): Promise<void> {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
-		if (sheetID instanceof SpreadsheetWorksheet) return sheetID.del();
-		await this.makeFeedRequest(`${GOOGLE_FEED_URL}worksheets/${this.ssKey}/private/full/${sheetID}`, 'DELETE', null);
+		if (worksheet instanceof SpreadsheetWorksheet) return worksheet.del();
+		await this.makeFeedRequest(`${GOOGLE_FEED_URL}worksheets/${this.spreadsheetKey}/private/full/${worksheet}`, 'DELETE', null);
 	}
 
-	public async getRows(worksheetID, options) {
+	public async getRows(worksheetID: number, options): Promise<SpreadsheetRow[]> {
 		// the first row is used as titles/keys and is not included
 		const query = {};
 
@@ -172,7 +176,7 @@ export default class GoogleSpreadsheet {
 		if ( options.reverse ) query['reverse'] = 'true';
 		if ( options.query ) query['sq'] = options.query;
 
-		const { data, xml } = await this.makeFeedRequest(['list', this.ssKey, worksheetID], 'GET', query);
+		const { data, xml } = await this.makeFeedRequest(['list', this.spreadsheetKey, worksheetID], 'GET', query);
 		if (!data) throw new Error('No response to getRows call');
 
 		// gets the raw xml for each entry -- this is passed to the row object so we can do updates on it later
@@ -188,7 +192,7 @@ export default class GoogleSpreadsheet {
 		return forceArray(data.entry).map((entry, i) => new SpreadsheetRow(this, entry, entriesXML[i]));
 	}
 
-	public async addRow(worksheetID, rowData) {
+	public async addRow(worksheetID: number, rowData): Promise<SpreadsheetRow> {
 		const dataXML = ['<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">'];
 
 		for (const [key, value] of Object.entries(rowData)) {
@@ -198,18 +202,18 @@ export default class GoogleSpreadsheet {
 		}
 
 		dataXML.push('</entry>');
-		const { data, xml } = await this.makeFeedRequest(['list', this.ssKey, worksheetID], 'POST', dataXML.join('\n'));
+		const { data, xml } = await this.makeFeedRequest(['list', this.spreadsheetKey, worksheetID], 'POST', dataXML.join('\n'));
 		const entriesXML = xml.match(/<entry[^>]*>([\s\S]*?)<\/entry>/g);
 		return new SpreadsheetRow(this, data, entriesXML[0]);
 	}
 
-	public async getCells(worksheetID, options = {}) {
-		const { data } = await this.makeFeedRequest(['cells', this.ssKey, worksheetID], 'GET', options);
+	public async getCells(worksheetID: number, options: SpreadsheetQuery = {}): Promise<SpreadsheetCell[]> {
+		const { data } = await this.makeFeedRequest(['cells', this.spreadsheetKey, worksheetID], 'GET', options);
 		if (!data) throw new Error('No response to getCells call');
-		return forceArray(data['entry']).map(entry => new SpreadsheetCell(this, this.ssKey, worksheetID, entry));
+		return forceArray(data['entry']).map(entry => new SpreadsheetCell(this, this.spreadsheetKey, worksheetID, entry));
 	}
 
-	public async makeFeedRequest(urlParams, method, queryOrData) {
+	public async makeFeedRequest(urlParams: string | Array<string | number>, method: HTTP_METHODS, queryOrData: string | SpreadsheetQuery): Promise<{xml: string, data: any}> {
 		let url;
 		const headers = {};
 		if (typeof urlParams === 'string') {
@@ -249,10 +253,7 @@ export default class GoogleSpreadsheet {
 
 		const body = await response.text();
 
-		if (response.status >= 400) {
-			const stringifiedBody = isObject(body) ? JSON.stringify(body) : body.replace(/&quot;/g, '"');
-			throw new Error(`HTTP error ${response.status} (${http.STATUS_CODES[response.status]}) - ${stringifiedBody}`);
-		}
+		if (response.status >= 400) throw new Error(`HTTP error ${response.status} (${http.STATUS_CODES[response.status]}) - ${body.replace(/&quot;/g, '"')}`);
 
 		return { xml: body, data: !body ? null : await parseString(body) };
 	}

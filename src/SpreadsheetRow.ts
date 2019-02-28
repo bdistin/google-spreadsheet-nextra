@@ -7,7 +7,7 @@ export default class SpreadsheetRow extends Map {
 	private xml: string;
 	private links = new Map<string, string>();
 
-	constructor(spreadsheet: GoogleSpreadsheet, data, xml) {
+	constructor(spreadsheet: GoogleSpreadsheet, data: any, xml: string) {
 		super();
 		this.spreadsheet = spreadsheet;
 		this.xml = xml;
@@ -21,7 +21,7 @@ export default class SpreadsheetRow extends Map {
 		}
 	}
 
-	public save() {
+	public async save(): Promise<void> {
 		let dataXML = this.xml.replace('<entry>', '<entry xmlns=\'http://www.w3.org/2005/Atom\' xmlns:gsx=\'http://schemas.google.com/spreadsheets/2006/extended\'>');
 		for (const [key, value] of this) {
 			// Need to double check against RegExp Redos
@@ -30,11 +30,11 @@ export default class SpreadsheetRow extends Map {
 				`<gsx:${xmlSafeColumnName(key)}>${xmlSafeValue(value)}</gsx:${xmlSafeColumnName(key)}>`
 			);
 		}
-		return this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'PUT', dataXML);
+		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'PUT', dataXML);
 	}
 
-	public del() {
-		return this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'DELETE', null);
+	public async del(): Promise<void> {
+		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'DELETE', null);
 	}
 
 }

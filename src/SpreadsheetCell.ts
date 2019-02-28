@@ -5,8 +5,8 @@ export default class SpreadsheetCell {
 
 	private spreadsheet: GoogleSpreadsheet;
 	private batchID: string;
-	private wsID: string;
-	private ss: string;
+	private worksheetID: number;
+	private spreadsheetKey: string;
 	private id: string;
 	private links: Map<string, string> = new Map();
 	private _formula: string;
@@ -17,15 +17,15 @@ export default class SpreadsheetCell {
 	public row: number;
 	public col: number;
 
-	public constructor(spreadsheet: GoogleSpreadsheet, ssKey: string, worksheetID: string, data) {
+	public constructor(spreadsheet: GoogleSpreadsheet, spreadsheetKey: string, worksheetID: number, data) {
 		this.spreadsheet = spreadsheet;
 		this.row = parseInt(data['gs:cell']['$']['row']);
 		this.col = parseInt(data['gs:cell']['$']['col']);
 		this.batchID = `R${this.row}C${this.col}`;
 
-		if (data.id === `https://spreadsheets.google.com/feeds/cells/${ssKey}/${worksheetID}/${this.batchID}`) {
-			this.wsID = worksheetID;
-			this.ss = ssKey;
+		if (data.id === `https://spreadsheets.google.com/feeds/cells/${spreadsheetKey}/${worksheetID}/${this.batchID}`) {
+			this.worksheetID = worksheetID;
+			this.spreadsheetKey = spreadsheetKey;
 		} else {
 			this.id = data.id;
 		}
@@ -39,38 +39,51 @@ export default class SpreadsheetCell {
 		this.updateValuesFromResponseData(data);
 	}
 
-	public getID() {
-		return this.id || `https://spreadsheets.google.com/feeds/cells/${this.ss}/${this.wsID}/${this.batchID}`;
+	public getID(): string {
+		return this.id || `https://spreadsheets.google.com/feeds/cells/${this.spreadsheetKey}/${this.worksheetID}/${this.batchID}`;
 	}
 
-	public getEdit() {
+	public getEdit(): string {
 		return this.links.get('edit') || this.getID().replace(this.batchID, `private/full/${this.batchID}`);
 	}
 
-	public getSelf() {
+	public getSelf(): string {
 		return this.links.get('edit') || this.getID().replace(this.batchID, `private/full/${this.batchID}`);
 	}
 
-	public updateValuesFromResponseData(_data) {
+	public getXML(link: string): string {
+		this._needsSave = false;
+		return [
+			'	<entry>',
+			`		<batch:id>${this.batchID}</batch:id>`,
+			'		<batch:operation type="update"/>',
+			`		<id>${link}/${this.batchID}</id>`,
+			`		<link rel="edit" type="application/atom+xml" href=\"${this.getEdit()}\"/>`,
+			`		<gs:cell row="${this.row}" col="${this.col}" inputValue="${this.valueForSave}"/>`,
+			'	</entry>'
+		].join('\n');
+	}
+
+	public updateValuesFromResponseData(data): void {
 		// formula value
-		const input_val = _data['gs:cell']['$']['inputValue'];
+		const input_val = data['gs:cell']['$']['inputValue'];
 		// inputValue can be undefined so substr throws an error
 		// still unsure how this situation happens
 		this._formula = input_val && input_val.startsWith('=') ? input_val : undefined;
 
 		// numeric values
-		this._numericValue = _data['gs:cell']['$']['numericValue'] !== undefined ? parseFloat(_data['gs:cell']['$']['numericValue']) : undefined;
+		this._numericValue = data['gs:cell']['$']['numericValue'] !== undefined ? parseFloat(data['gs:cell']['$']['numericValue']) : undefined;
 
 		// the main "value" - its always a string
-		this._value = _data['gs:cell']['_'] || '';
+		this._value = data['gs:cell']['_'] || '';
 	}
 
-	public async setValue(new_value) {
-		this.value = new_value;
+	public async setValue(value): Promise<void> {
+		this.value = value;
 		await this.save();
 	}
 
-	public get value() {
+	public get value(): string {
 		return this._needsSave ? '*SAVE TO GET NEW VALUE*' : this._value;
 	}
 
@@ -97,7 +110,7 @@ export default class SpreadsheetCell {
 		}
 	}
 
-	public get formula() {
+	public get formula(): string {
 		return this._formula;
 	}
 
@@ -131,11 +144,11 @@ export default class SpreadsheetCell {
 		this._formula = undefined;
 	}
 
-	public get valueForSave() {
+	public get valueForSave(): string {
 		return xmlSafeValue(this._formula || this._value);
 	}
 
-	public async save() {
+	public async save(): Promise<void> {
 		this._needsSave = false;
 
 		const id = this.getID();
@@ -151,11 +164,11 @@ export default class SpreadsheetCell {
 		this.updateValuesFromResponseData(data);
 	}
 
-	public async del() {
+	public async del(): Promise<void> {
 		await this.setValue('');
 	}
 
-	private _clearValue() {
+	private _clearValue(): void {
 		this._formula = undefined;
 		this._numericValue = undefined;
 		this._value = '';

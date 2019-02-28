@@ -1,5 +1,7 @@
-import GoogleSpreadsheet from './GoogleSpreadsheet';
+import GoogleSpreadsheet, { SpreadsheetQuery } from './GoogleSpreadsheet';
 import { forceArray } from './util';
+import SpreadsheetCell from './SpreadsheetCell';
+import SpreadsheetRow from './SpreadsheetRow';
 
 export interface EditOptions {
 	rowCount?: number;
@@ -12,7 +14,7 @@ export default class SpreadsheetWorksheet {
 	private links = new Map();
 	private spreadsheet: GoogleSpreadsheet;
 	public url: string;
-	public id: string;
+	public id: number;
 	public title: string;
 	public rowCount: number;
 	public colCount: number;
@@ -20,7 +22,7 @@ export default class SpreadsheetWorksheet {
 	constructor(spreadsheet: GoogleSpreadsheet, data) {
 		this.spreadsheet = spreadsheet;
 		this.url = data.id;
-		this.id = data.id.substring(data.id.lastIndexOf('/') + 1);
+		this.id = parseInt(data.id.substring(data.id.lastIndexOf('/') + 1));
 		this.title = data.title;
 		this.rowCount = parseInt(data['gs:rowCount']);
 		this.colCount = parseInt(data['gs:colCount']);
@@ -33,7 +35,7 @@ export default class SpreadsheetWorksheet {
 		this.links.set('bulkcells', `${cells}/batch`);
 	}
 
-	public async edit({ title, rowCount, colCount }: EditOptions) {
+	public async edit({ title, rowCount, colCount }: EditOptions): Promise<void> {
 		const xml = [
 			'<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006">',
 			`<title>${title || this.title}</title>`,
@@ -49,15 +51,15 @@ export default class SpreadsheetWorksheet {
 		this.colCount = parseInt(data['gs:colCount']);
 	}
 
-	public resize(rowCount: number, colCount: number) {
+	public resize(rowCount: number, colCount: number): Promise<void> {
 		return this.edit({ rowCount, colCount });
 	}
 
-	public setTitle(title: string) {
+	public setTitle(title: string): Promise<void> {
 		return this.edit({ title });
 	}
 
-	public async clear() {
+	public async clear(): Promise<void> {
 		const { colCount, rowCount } = this;
 		await this.resize(1, 1);
 		const cells = await this.getCells();
@@ -65,35 +67,25 @@ export default class SpreadsheetWorksheet {
 		await this.resize(rowCount, colCount);
 	}
 
-	public getRows(options) {
+	public getRows(options): Promise<SpreadsheetRow[]> {
 		return this.spreadsheet.getRows(this.id, options);
 	}
 
-	public getCells(options = {}) {
+	public getCells(options: SpreadsheetQuery = {}): Promise<SpreadsheetCell[]> {
 		return this.spreadsheet.getCells(this.id, options);
 	}
 
-	public addRow(data) {
+	public addRow(data): Promise<SpreadsheetRow> {
 		return this.spreadsheet.addRow(this.id, data);
 	}
 
-	public async bulkUpdateCells(cells) {
-		const entries = cells.map(cell => {
-			cell._needsSave = false;
-			return [
-				'	<entry>',
-				`		<batch:id>${cell.batchId}</batch:id>`,
-				'		<batch:operation type="update"/>',
-				`		<id>${this.links.get('cells')}/${cell.batchId}</id>`,
-				`		<link rel="edit" type="application/atom+xml" href=\"${cell.getEdit()}\"/>`,
-				`		<gs:cell row="${cell.row}" col="${cell.col}" inputValue="${cell.valueForSave}"/>`,
-				'	</entry>'
-			].join('\n');
-		});
+	public async bulkUpdateCells(cells: SpreadsheetCell[]): Promise<void> {
+		const link = this.links.get('cells');
+		const entries = cells.map(cell => cell.getXML(link));
 
 		const dataXML = [
 			'<feed xmlns="http://www.w3.org/2005/Atom" xmlns:batch="http://schemas.google.com/gdata/batch" xmlns:gs="http://schemas.google.com/spreadsheets/2006">',
-			`	  <id>${this.links.get('cells')}</id>`,
+			`	  <id>${link}</id>`,
 			entries.join('\n'),
 			'</feed>'
 		].join('\n');
@@ -111,11 +103,11 @@ export default class SpreadsheetWorksheet {
 		}
 	}
 
-	public async del() {
+	public async del(): Promise<void> {
 		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'DELETE', null);
 	}
 
-	public async setHeaderRow(values) {
+	public async setHeaderRow(values: string[]): Promise<void> {
 		if (!values) return;
 		if (values.length > this.colCount) throw new Error(`Sheet is not large enough to fit ${values.length} columns. Resize the sheet first.`);
 
