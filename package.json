@@ -5,17 +5,19 @@
   "main": "dist/index.js",
   "scripts": {
     "prepublishOnly": "yarn build",
-    "build": "tsc",
-    "test:lint": "tslint '{src}/**/*.ts'",
-    "lint": "tslint --fix '{src}/**/*.ts'"
+    "build": "yarn tsc",
+    "test:lint": "yarn eslint --ext ts src",
+    "lint": "yarn eslint --fix --ext ts src"
   },
   "author": "bdistin",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^11.9.5",
+    "@typescript-eslint/eslint-plugin": "^1.6.0",
+    "@typescript-eslint/parser": "^1.6.0",
     "eslint": "^5.14.1",
     "eslint-config-klasa": "dirigeants/klasa-lint",
-    "tslint": "^5.13.0"
+    "typescript": "^3.4.4"
   },
   "dependencies": {
     "google-auth-library": "^3.1.0",

@@ -19,7 +19,7 @@ export default class SpreadsheetWorksheet {
 	public rowCount: number;
 	public colCount: number;
 
-	constructor(spreadsheet: GoogleSpreadsheet, data) {
+	public constructor(spreadsheet: GoogleSpreadsheet, data) {
 		this.spreadsheet = spreadsheet;
 		this.url = data.id;
 		this.id = parseInt(data.id.substring(data.id.lastIndexOf('/') + 1));
@@ -81,7 +81,7 @@ export default class SpreadsheetWorksheet {
 
 	public async bulkUpdateCells(cells: SpreadsheetCell[]): Promise<void> {
 		const link = this.links.get('cells');
-		const entries = cells.map(cell => cell.getXML(link));
+		const entries = cells.map((cell): string => cell.getXML(link));
 
 		const dataXML = [
 			'<feed xmlns="http://www.w3.org/2005/Atom" xmlns:batch="http://schemas.google.com/gdata/batch" xmlns:gs="http://schemas.google.com/spreadsheets/2006">',
@@ -94,7 +94,8 @@ export default class SpreadsheetWorksheet {
 
 		// update all the cells
 		if (data.entry && data.entry.length) {
-			const cellsByBatchID = cells.reduce((acc, entry) => {
+			const cellsByBatchID = cells.reduce((acc, entry): any => {
+				// eslint-disable-next-line dot-notation
 				acc[entry['batchId']] = entry;
 				return acc;
 			}, {});
@@ -108,7 +109,7 @@ export default class SpreadsheetWorksheet {
 	}
 
 	public async setHeaderRow(values: string[]): Promise<void> {
-		if (!values) return;
+		if (!values) return undefined;
 		if (values.length > this.colCount) throw new Error(`Sheet is not large enough to fit ${values.length} columns. Resize the sheet first.`);
 
 		const cells = await this.getCells({
