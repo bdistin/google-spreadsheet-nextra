@@ -7,7 +7,7 @@ export default class SpreadsheetRow extends Map {
 	private xml: string;
 	private links = new Map<string, string>();
 
-	constructor(spreadsheet: GoogleSpreadsheet, data: any, xml: string) {
+	public constructor(spreadsheet: GoogleSpreadsheet, data: any, xml: string) {
 		super();
 		this.spreadsheet = spreadsheet;
 		this.xml = xml;
@@ -15,6 +15,7 @@ export default class SpreadsheetRow extends Map {
 		for (const [key, value] of Object.entries(data)) {
 			if (key.startsWith('gsx:')) this.set(key === 'gsx:' ? key.substring(0, 3) : key.substring(4), typeof value === 'object' && Object.keys(value).length === 0 ? null : value);
 			else if (key === 'id') this.set(key, value);
+			// eslint-disable-next-line dot-notation
 			else if (value['_']) this.set(key, value['_']);
 			// @ts-ignore
 			else if (key === 'link') for (const link of forceArray(value)) this.links.set(link.$.rel, link.$.href);

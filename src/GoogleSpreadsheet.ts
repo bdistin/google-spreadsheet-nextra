@@ -3,13 +3,13 @@ import * as xml2js from 'xml2js';
 import { JWT } from 'google-auth-library';
 
 import * as http from 'http';
-import * as querystring from 'querystring';
 import { promisify } from 'util';
 
 import SpreadsheetWorksheet from './SpreadsheetWorksheet';
 import SpreadsheetCell from './SpreadsheetCell';
 import SpreadsheetRow from './SpreadsheetRow';
 import { forceArray, mergeDefault, deepClone, xmlSafeColumnName, xmlSafeValue } from './util';
+import { URLSearchParams } from 'url';
 
 const parser = new xml2js.Parser({
 	explicitArray: false,
@@ -45,7 +45,7 @@ export interface SpreadsheetInfo {
 	title: string;
 	updated: string;
 	author: string;
-	worksheets: Array<SpreadsheetWorksheet>;
+	worksheets: SpreadsheetWorksheet[];
 }
 
 export interface CellsQuery {
@@ -90,9 +90,9 @@ export default class GoogleSpreadsheet {
 	private options;
 
 	public info: SpreadsheetInfo;
-	public worksheets: Array<SpreadsheetWorksheet>;
+	public worksheets: SpreadsheetWorksheet[];
 
-	constructor(spreadsheetKey: string, authID, options) {
+	public constructor(spreadsheetKey: string, authID, options) {
 		this.options = options || {};
 		if (!spreadsheetKey) throw new Error('Spreadsheet key not provided');
 		this.spreadsheetKey = spreadsheetKey;
@@ -154,7 +154,8 @@ export default class GoogleSpreadsheet {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 
 		mergeDefault({
-			title: `Worksheet ${new Date()}`,	// need a unique title
+			// need a unique title
+			title: `Worksheet ${new Date()}`,
 			rowCount: 50,
 			colCount: 20
 		}, options);
@@ -170,7 +171,7 @@ export default class GoogleSpreadsheet {
 			'</entry>'
 		].join('');
 
-		const { data } = await this.makeFeedRequest( ['worksheets', this.spreadsheetKey], 'POST', dataXML);
+		const { data } = await this.makeFeedRequest(['worksheets', this.spreadsheetKey], 'POST', dataXML);
 
 		const sheet = new SpreadsheetWorksheet(this, data);
 		this.worksheets = this.worksheets || [];
@@ -183,6 +184,7 @@ export default class GoogleSpreadsheet {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 		if (worksheet instanceof SpreadsheetWorksheet) return worksheet.del();
 		await this.makeFeedRequest(`${GOOGLE_FEED_URL}worksheets/${this.spreadsheetKey}/private/full/${worksheet}`, 'DELETE', null);
+		return undefined;
 	}
 
 	public async getRows(worksheetID: number, options: RowsQuery = {}): Promise<SpreadsheetRow[]> {
@@ -191,8 +193,11 @@ export default class GoogleSpreadsheet {
 
 		if (options.offset) query['start-index'] = options.offset;
 		if (options.limit) query['max-results'] = options.limit;
+		// eslint-disable-next-line dot-notation
 		if (options.orderBy) query['orderby'] = options.orderBy;
+		// eslint-disable-next-line dot-notation
 		if (options.reverse) query['reverse'] = 'true';
+		// eslint-disable-next-line dot-notation
 		if (options.query) query['sq'] = options.query;
 
 		const { data, xml } = await this.makeFeedRequest(['list', this.spreadsheetKey, worksheetID], 'GET', query);
@@ -205,10 +210,10 @@ export default class GoogleSpreadsheet {
 		// need to add the properties from the feed to the xml for the entries
 		const feedProps = deepClone(data.$);
 		delete feedProps['gd:etag'];
-		const feedPropsStr = feedProps.reduce((str, val, key) => `${str}${key}='${val}' `, '');
-		entriesXML = entriesXML.map((xml) => xml.replace('<entry ', `<entry ${feedPropsStr}`));
+		const feedPropsStr = feedProps.reduce((str, val, key): string => `${str}${key}='${val}' `, '');
+		entriesXML = entriesXML.map((_xml): string => _xml.replace('<entry ', `<entry ${feedPropsStr}`));
 
-		return forceArray(data.entry).map((entry, i) => new SpreadsheetRow(this, entry, entriesXML[i]));
+		return forceArray(data.entry).map((entry, i): SpreadsheetRow => new SpreadsheetRow(this, entry, entriesXML[i]));
 	}
 
 	public async addRow(worksheetID: number, rowData): Promise<SpreadsheetRow> {
@@ -229,10 +234,11 @@ export default class GoogleSpreadsheet {
 	public async getCells(worksheetID: number, options: CellsQuery = {}): Promise<SpreadsheetCell[]> {
 		const { data } = await this.makeFeedRequest(['cells', this.spreadsheetKey, worksheetID], 'GET', options);
 		if (!data) throw new Error('No response to getCells call');
-		return forceArray(data['entry']).map(entry => new SpreadsheetCell(this, this.spreadsheetKey, worksheetID, entry));
+		// eslint-disable-next-line dot-notation
+		return forceArray(data['entry']).map((entry): SpreadsheetCell => new SpreadsheetCell(this, this.spreadsheetKey, worksheetID, entry));
 	}
 
-	public async makeFeedRequest(urlParams: string | Array<string | number>, method: HTTP_METHODS, queryOrData: string | CellsQuery | APIRowQuery): Promise<{xml: string, data: any}> {
+	public async makeFeedRequest(urlParams: string | (string | number)[], method: HTTP_METHODS, queryOrData: string | CellsQuery | APIRowQuery): Promise<{xml: string, data: any}> {
 		let url;
 		const headers = {};
 		if (typeof urlParams === 'string') {
@@ -245,11 +251,12 @@ export default class GoogleSpreadsheet {
 		}
 
 		// auth
-		if (this.authMode === GoogleSpreadsheetAuthMode.jwt && this.googleAuth && this.googleAuth.expires > + new Date()) await this.renewJwtAuth();
+		if (this.authMode === GoogleSpreadsheetAuthMode.jwt && this.googleAuth && this.googleAuth.expires > Date.now()) await this.renewJwtAuth();
 
 		// request
 		headers['Gdata-Version'] = '3.0';
 
+		// eslint-disable-next-line dot-notation
 		if (this.googleAuth) headers['Authorization'] = this.googleAuth.type === 'Bearer' ? `Bearer ${this.googleAuth.value}` : `GoogleLogin auth=${this.googleAuth}`;
 
 		if (method === 'POST' || method === 'PUT') {
@@ -258,7 +265,7 @@ export default class GoogleSpreadsheet {
 		}
 
 		if (method === 'GET' && queryOrData) {
-			url += `?${querystring.stringify(queryOrData)}`
+			url += `?${new URLSearchParams(queryOrData as string | { [key: string]: string | string[] })}`
 				// replacements are needed for using structured queries on getRows
 				.replace(/%3E/g, '>')
 				.replace(/%3D/g, '=')

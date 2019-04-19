@@ -19,7 +19,9 @@ export default class SpreadsheetCell {
 
 	public constructor(spreadsheet: GoogleSpreadsheet, spreadsheetKey: string, worksheetID: number, data) {
 		this.spreadsheet = spreadsheet;
+		// eslint-disable-next-line dot-notation
 		this.row = parseInt(data['gs:cell']['$']['row']);
+		// eslint-disable-next-line dot-notation
 		this.col = parseInt(data['gs:cell']['$']['col']);
 		this.batchID = `R${this.row}C${this.col}`;
 
@@ -58,7 +60,7 @@ export default class SpreadsheetCell {
 			`		<batch:id>${this.batchID}</batch:id>`,
 			'		<batch:operation type="update"/>',
 			`		<id>${link}/${this.batchID}</id>`,
-			`		<link rel="edit" type="application/atom+xml" href=\"${this.getEdit()}\"/>`,
+			`		<link rel="edit" type="application/atom+xml" href="${this.getEdit()}"/>`,
 			`		<gs:cell row="${this.row}" col="${this.col}" inputValue="${this.valueForSave}"/>`,
 			'	</entry>'
 		].join('\n');
@@ -66,15 +68,18 @@ export default class SpreadsheetCell {
 
 	public updateValuesFromResponseData(data): void {
 		// formula value
-		const input_val = data['gs:cell']['$']['inputValue'];
+		// eslint-disable-next-line dot-notation
+		const inputVal = data['gs:cell']['$']['inputValue'];
 		// inputValue can be undefined so substr throws an error
 		// still unsure how this situation happens
-		this._formula = input_val && input_val.startsWith('=') ? input_val : undefined;
+		this._formula = inputVal && inputVal.startsWith('=') ? inputVal : undefined;
 
 		// numeric values
+		// eslint-disable-next-line dot-notation
 		this._numericValue = data['gs:cell']['$']['numericValue'] !== undefined ? parseFloat(data['gs:cell']['$']['numericValue']) : undefined;
 
 		// the main "value" - its always a string
+		// eslint-disable-next-line dot-notation
 		this._value = data['gs:cell']['_'] || '';
 	}
 
@@ -93,9 +98,9 @@ export default class SpreadsheetCell {
 			return;
 		}
 
-		const numeric_val = parseFloat(val);
-		if (!isNaN(numeric_val)) {
-			this._numericValue = numeric_val;
+		const numericVal = parseFloat(val);
+		if (!isNaN(numericVal)) {
+			this._numericValue = numericVal;
 			this._value = val.toString();
 		} else {
 			this._numericValue = undefined;
@@ -126,6 +131,7 @@ export default class SpreadsheetCell {
 		this._formula = val;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 	public get numericValue() {
 		return this._numericValue;
 	}
