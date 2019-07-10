@@ -12,7 +12,7 @@
   "author": "bdistin",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^11.9.5",
+    "@types/node": "^12.6.2",
     "@typescript-eslint/eslint-plugin": "^1.6.0",
     "@typescript-eslint/parser": "^1.6.0",
     "eslint": "^5.14.1",
