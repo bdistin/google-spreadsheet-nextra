@@ -288,8 +288,8 @@ escape-string-regexp@^1.0.5:
 
 eslint-config-klasa@dirigeants/klasa-lint:
   version "0.0.1"
-  uid b3c519e0cb0a9c93a5d629f4b60bcd2a901c0538
-  resolved "https://codeload.github.com/dirigeants/klasa-lint/tar.gz/b3c519e0cb0a9c93a5d629f4b60bcd2a901c0538"
+  uid "28618d5bf851bffdb6775deb5937acfe2a1af25a"
+  resolved "https://codeload.github.com/dirigeants/klasa-lint/tar.gz/28618d5bf851bffdb6775deb5937acfe2a1af25a"
 
 eslint-scope@^4.0.0, eslint-scope@^4.0.3:
   version "4.0.3"
