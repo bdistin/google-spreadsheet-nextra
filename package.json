@@ -22,6 +22,6 @@
   "dependencies": {
     "google-auth-library": "^4.2.5",
     "node-fetch": "^2.3.0",
-    "xml2js": "^0.4.19"
+    "xml2js": "^0.4.23"
   }
 }
