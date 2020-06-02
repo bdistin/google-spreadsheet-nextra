@@ -20,7 +20,7 @@
     "typescript": "^3.7.5"
   },
   "dependencies": {
-    "google-auth-library": "^5.9.2",
+    "google-auth-library": "^6.0.1",
     "node-fetch": "^2.3.0",
     "xml2js": "^0.4.23"
   }
