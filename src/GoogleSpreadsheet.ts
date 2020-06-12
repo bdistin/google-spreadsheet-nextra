@@ -2,12 +2,11 @@ import fetch from 'node-fetch';
 import * as xml2js from 'xml2js';
 import { JWT } from 'google-auth-library';
 
-import * as http from 'http';
-import { promisify } from 'util';
+import { STATUS_CODES } from 'http';
 
-import SpreadsheetWorksheet from './SpreadsheetWorksheet';
-import SpreadsheetCell from './SpreadsheetCell';
-import SpreadsheetRow from './SpreadsheetRow';
+import { SpreadsheetWorksheet } from './SpreadsheetWorksheet';
+import { SpreadsheetCell } from './SpreadsheetCell';
+import { SpreadsheetRow } from './SpreadsheetRow';
 import { forceArray, mergeDefault, deepClone, xmlSafeColumnName, xmlSafeValue } from './util';
 import { URLSearchParams } from 'url';
 
@@ -15,7 +14,12 @@ const parser = new xml2js.Parser({
 	explicitArray: false,
 	explicitRoot: false
 });
-const parseString = promisify(parser.parseString);
+const parseString = (str: string): Promise<unknown> => new Promise((resolve, reject) => {
+	parser.parseString(str, (data, error) => {
+		if (error) return reject(error);
+		return resolve(data);
+	});
+});
 
 const GOOGLE_FEED_URL = 'https://spreadsheets.google.com/feeds/';
 const GOOGLE_AUTH_SCOPE = ['https://spreadsheets.google.com/feeds'];
@@ -79,7 +83,7 @@ export interface WorksheetOptions {
 	headers?: string[];
 }
 
-export default class GoogleSpreadsheet {
+export class GoogleSpreadsheet {
 
 	private googleAuth = null;
 	private visibility = GoogleSpreadsheetVisibility.public;
@@ -240,12 +244,14 @@ export default class GoogleSpreadsheet {
 
 	public async makeFeedRequest(urlParams: string | (string | number)[], method: HTTP_METHODS, queryOrData: string | CellsQuery | APIRowQuery): Promise<{xml: string, data: any}> {
 		let url;
+		let body: string | null = null;
+
 		const headers = {};
 		if (typeof urlParams === 'string') {
 			// used for edit / delete requests
 			url = urlParams;
 		} else if (Array.isArray(urlParams)) {
-			// used for get and post requets
+			// used for get and post requests
 			urlParams.push(GoogleSpreadsheetVisibility[this.visibility], GoogleSpreadsheetProjection[this.projection]);
 			url = GOOGLE_FEED_URL + urlParams.join('/');
 		}
@@ -262,6 +268,7 @@ export default class GoogleSpreadsheet {
 		if (method === 'POST' || method === 'PUT') {
 			headers['content-type'] = 'application/atom+xml';
 			if (url.includes('/batch')) headers['If-Match'] = '*';
+			body = queryOrData as string;
 		}
 
 		if (method === 'GET' && queryOrData) {
@@ -272,16 +279,16 @@ export default class GoogleSpreadsheet {
 				.replace(/%3C/g, '<');
 		}
 
-		const response = await fetch(url, { method, headers, body: method === 'POST' || method === 'PUT' ? queryOrData : null });
+		const response = await fetch(url, { method, headers, body });
 
 		if (response.status === 200 && response.headers.get('content-type').includes('text/html')) throw new Error(`Sheet is private. Use authentication or make public.`);
 		if (response.status === 401) throw new Error('Invalid authorization key.');
 
-		const body = await response.text();
+		const xml = await response.text();
 
-		if (response.status >= 400) throw new Error(`HTTP error ${response.status} (${http.STATUS_CODES[response.status]}) - ${body.replace(/&quot;/g, '"')}`);
+		if (response.status >= 400) throw new Error(`HTTP error ${response.status} (${STATUS_CODES[response.status]}) - ${xml.replace(/&quot;/g, '"')}`);
 
-		return { xml: body, data: !body ? null : await parseString(body) };
+		return { xml, data: !xml ? null : await parseString(xml) };
 	}
 
 }

@@ -1,7 +1,8 @@
-import GoogleSpreadsheet, { CellsQuery, RowsQuery } from './GoogleSpreadsheet';
 import { forceArray } from './util';
-import SpreadsheetCell from './SpreadsheetCell';
-import SpreadsheetRow from './SpreadsheetRow';
+
+import type { GoogleSpreadsheet, CellsQuery, RowsQuery } from './GoogleSpreadsheet';
+import type { SpreadsheetCell } from './SpreadsheetCell';
+import type { SpreadsheetRow } from './SpreadsheetRow';
 
 export interface EditOptions {
 	rowCount?: number;
@@ -9,7 +10,7 @@ export interface EditOptions {
 	title?: string;
 }
 
-export default class SpreadsheetWorksheet {
+export class SpreadsheetWorksheet {
 
 	private links = new Map();
 	private spreadsheet: GoogleSpreadsheet;

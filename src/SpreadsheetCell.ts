@@ -1,7 +1,8 @@
-import GoogleSpreadsheet from './GoogleSpreadsheet';
 import { xmlSafeValue, forceArray } from './util';
 
-export default class SpreadsheetCell {
+import type { GoogleSpreadsheet } from './GoogleSpreadsheet';
+
+export class SpreadsheetCell {
 
 	private spreadsheet: GoogleSpreadsheet;
 	private batchID: string;
@@ -12,7 +13,7 @@ export default class SpreadsheetCell {
 	private _formula: string;
 	private _numericValue: number;
 	private _value: string;
-	private _needsSave: boolean = false;
+	private _needsSave = false;
 
 	public row: number;
 	public col: number;
