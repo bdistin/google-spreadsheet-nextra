@@ -1,7 +1,8 @@
-import GoogleSpreadsheet from './GoogleSpreadsheet';
 import { xmlSafeColumnName, forceArray, xmlSafeValue } from './util';
 
-export default class SpreadsheetRow extends Map {
+import type { GoogleSpreadsheet } from './GoogleSpreadsheet';
+
+export class SpreadsheetRow extends Map {
 
 	private spreadsheet: GoogleSpreadsheet;
 	private xml: string;
@@ -17,8 +18,8 @@ export default class SpreadsheetRow extends Map {
 			else if (key === 'id') this.set(key, value);
 			// eslint-disable-next-line dot-notation
 			else if (value['_']) this.set(key, value['_']);
-			// @ts-ignore
-			else if (key === 'link') for (const link of forceArray(value)) this.links.set(link.$.rel, link.$.href);
+			// eslint-disable-next-line dot-notation
+			else if (key === 'link') for (const link of forceArray(value)) this.links.set(link['$'].rel, link['$'].href);
 		}
 	}
 

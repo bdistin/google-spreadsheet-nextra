@@ -39,14 +39,12 @@ export const deepClone = (source): any => {
 		return output;
 	}
 	if (source instanceof Map) {
-		// @ts-ignore
-		const output = new source.constructor();
+		const output = new (source.constructor as typeof Map)();
 		for (const [key, value] of source.entries()) output.set(key, deepClone(value));
 		return output;
 	}
 	if (source instanceof Set) {
-		// @ts-ignore
-		const output = new source.constructor();
+		const output = new (source.constructor as typeof Set)();
 		for (const value of source.values()) output.add(deepClone(value));
 		return output;
 	}
