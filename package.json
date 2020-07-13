@@ -33,7 +33,7 @@
     "typescript": "^3.9.6"
   },
   "dependencies": {
-    "google-auth-library": "^6.0.4",
+    "google-auth-library": "^6.0.5",
     "node-fetch": "^2.6.0",
     "xml2js": "^0.4.23"
   },
