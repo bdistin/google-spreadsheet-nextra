@@ -10,14 +10,44 @@ export interface EditOptions {
 	title?: string;
 }
 
+/**
+ * Represents a worksheet in the connected spreadsheet
+ */
 export class SpreadsheetWorksheet {
 
+	/**
+	 * The links for this worksheet
+	 */
 	private links = new Map();
+
+	/**
+	 * The google spreadsheet this worksheet belongs to
+	 */
 	private spreadsheet: GoogleSpreadsheet;
+
+	/**
+	 * The url to this worksheet
+	 */
 	public url: string;
+
+	/**
+	 * The id of this worksheet
+	 */
 	public id: number;
+
+	/**
+	 * The title of this worksheet
+	 */
 	public title: string;
+
+	/**
+	 * The number of rows in this worksheet
+	 */
 	public rowCount: number;
+
+	/**
+	 * The number of columns in this worksheet
+	 */
 	public colCount: number;
 
 	public constructor(spreadsheet: GoogleSpreadsheet, data) {
@@ -36,6 +66,10 @@ export class SpreadsheetWorksheet {
 		this.links.set('bulkcells', `${cells}/batch`);
 	}
 
+	/**
+	 * Edits title, rowcount, and or column count for this worksheet
+	 * @param param0 The edit options
+	 */
 	public async edit({ title, rowCount, colCount }: EditOptions): Promise<void> {
 		const xml = [
 			'<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gs="http://schemas.google.com/spreadsheets/2006">',
@@ -52,14 +86,26 @@ export class SpreadsheetWorksheet {
 		this.colCount = parseInt(data['gs:colCount']);
 	}
 
+	/**
+	 * Resizes this worksheet
+	 * @param rowCount The new row count
+	 * @param colCount The new column count
+	 */
 	public resize(rowCount: number, colCount: number): Promise<void> {
 		return this.edit({ rowCount, colCount });
 	}
 
+	/**
+	 * Sets the title of this worksheet
+	 * @param title The new title
+	 */
 	public setTitle(title: string): Promise<void> {
 		return this.edit({ title });
 	}
 
+	/**
+	 * Clears this worksheet
+	 */
 	public async clear(): Promise<void> {
 		const { colCount, rowCount } = this;
 		await this.resize(1, 1);
@@ -68,18 +114,34 @@ export class SpreadsheetWorksheet {
 		await this.resize(rowCount, colCount);
 	}
 
+	/**
+	 * Gets rows from this worksheet
+	 * @param options The row query
+	 */
 	public getRows(options: RowsQuery): Promise<SpreadsheetRow[]> {
 		return this.spreadsheet.getRows(this.id, options);
 	}
 
+	/**
+	 * Gets cells from this worksheet
+	 * @param options The cells query
+	 */
 	public getCells(options: CellsQuery = {}): Promise<SpreadsheetCell[]> {
 		return this.spreadsheet.getCells(this.id, options);
 	}
 
+	/**
+	 * Adds a row to this worksheet
+	 * @param data The row data
+	 */
 	public addRow(data): Promise<SpreadsheetRow> {
 		return this.spreadsheet.addRow(this.id, data);
 	}
 
+	/**
+	 * Updates many cells at the same time
+	 * @param cells The cells to be updated
+	 */
 	public async bulkUpdateCells(cells: SpreadsheetCell[]): Promise<void> {
 		const link = this.links.get('cells');
 		const entries = cells.map((cell): string => cell.getXML(link));
@@ -105,10 +167,17 @@ export class SpreadsheetWorksheet {
 		}
 	}
 
+	/**
+	 * Deletes this worksheet
+	 */
 	public async del(): Promise<void> {
 		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'DELETE', null);
 	}
 
+	/**
+	 * Sets a header row
+	 * @param values The values for the header row
+	 */
 	public async setHeaderRow(values: string[]): Promise<void> {
 		if (!values) return undefined;
 		if (values.length > this.colCount) throw new Error(`Sheet is not large enough to fit ${values.length} columns. Resize the sheet first.`);

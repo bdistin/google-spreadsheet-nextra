@@ -83,17 +83,54 @@ export interface WorksheetOptions {
 	headers?: string[];
 }
 
+/**
+ * The main controlling class for creating connections to GoogleSheets
+ */
 export class GoogleSpreadsheet {
 
+	/**
+	 * The authorization data
+	 */
 	private googleAuth = null;
+
+	/**
+	 * The visibility of the connected spreadsheet
+	 */
 	private visibility = GoogleSpreadsheetVisibility.public;
+
+	/**
+	 * The projection of the connected spreadsheet
+	 */
 	private projection = GoogleSpreadsheetProjection.values;
+
+	/**
+	 * The authorization mode of the connected spreadsheet
+	 */
 	private authMode = GoogleSpreadsheetAuthMode.anonymous;
+
+	/**
+	 * The key for the connected spreadsheet
+	 */
 	private spreadsheetKey: string;
+
+	/**
+	 * The json webtoken client for the connected spreadsheet
+	 */
 	private jwtClient: JWT = null;
+
+	/**
+	 * The options passed to the constructor
+	 */
 	private options;
 
+	/**
+	 * The metadata about the connected spreadsheet
+	 */
 	public info: SpreadsheetInfo;
+
+	/**
+	 * The worksheets for the connected spreadsheet
+	 */
 	public worksheets: SpreadsheetWorksheet[];
 
 	public constructor(spreadsheetKey: string, authID, options) {
@@ -104,6 +141,10 @@ export class GoogleSpreadsheet {
 		this.setAuthAndDependencies(authID);
 	}
 
+	/**
+	 * Sets the authorization, visibility, and projection for this spreadsheet
+	 * @param auth The authorization
+	 */
 	private setAuthAndDependencies(auth: string): void {
 		this.googleAuth = auth;
 
@@ -111,17 +152,28 @@ export class GoogleSpreadsheet {
 		if (!this.options.projection) this.projection = this.googleAuth ? GoogleSpreadsheetProjection.full : GoogleSpreadsheetProjection.values;
 	}
 
+	/**
+	 * Sets the authorization for this spreadsheet
+	 * @param auth Auth data
+	 */
 	public setAuthToken(auth): void {
 		if (this.authMode === GoogleSpreadsheetAuthMode.anonymous) this.authMode = GoogleSpreadsheetAuthMode.token;
 		this.setAuthAndDependencies(auth);
 	}
 
+	/**
+	 * Sets authorization to use a service account for authorization
+	 * @param creds The credentials
+	 */
 	public useServiceAccountAuth(creds): Promise<void> {
 		if (typeof creds === 'string') creds = require(creds);
 		this.jwtClient = new JWT(creds.client_email, null, creds.private_key, GOOGLE_AUTH_SCOPE, null);
 		return this.renewJwtAuth();
 	}
 
+	/**
+	 * Renews the json webtoken client authorization
+	 */
 	private async renewJwtAuth(): Promise<void> {
 		this.authMode = GoogleSpreadsheetAuthMode.jwt;
 		const credentials = await this.jwtClient.authorize();
@@ -132,10 +184,16 @@ export class GoogleSpreadsheet {
 		});
 	}
 
+	/**
+	 * Returns if this class is authorized
+	 */
 	public get isAuthActive(): boolean {
 		return !!this.googleAuth;
 	}
 
+	/**
+	 * Downloads info from google sheets for the connected spreadsheet
+	 */
 	public async getInfo(): Promise<SpreadsheetInfo> {
 		const { data } = await this.makeFeedRequest(['worksheets', this.spreadsheetKey], 'GET', null);
 		if (!data) throw new Error('No response to getInfo call');
@@ -154,6 +212,10 @@ export class GoogleSpreadsheet {
 		return this.info;
 	}
 
+	/**
+	 * Adds a new worksheet in the connected spreadsheet
+	 * @param options The worksheet options
+	 */
 	public async addWorksheet(options: WorksheetOptions = {}): Promise<SpreadsheetWorksheet> {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 
@@ -184,6 +246,10 @@ export class GoogleSpreadsheet {
 		return sheet;
 	}
 
+	/**
+	 * Deletes a worksheet from the connected spreadsheet
+	 * @param worksheet The worksheet id or SpreadsheetWorksheet instance to delete
+	 */
 	public async removeWorksheet(worksheet: number | SpreadsheetWorksheet): Promise<void> {
 		if (!this.isAuthActive) throw new Error(REQUIRE_AUTH_MESSAGE);
 		if (worksheet instanceof SpreadsheetWorksheet) return worksheet.del();
@@ -191,6 +257,11 @@ export class GoogleSpreadsheet {
 		return undefined;
 	}
 
+	/**
+	 * Gets rows from the connected spreadsheet for the given worksheet and options
+	 * @param worksheetID The worksheet id
+	 * @param options The rows query
+	 */
 	public async getRows(worksheetID: number, options: RowsQuery = {}): Promise<SpreadsheetRow[]> {
 		// the first row is used as titles/keys and is not included
 		const query: APIRowQuery = {};
@@ -220,6 +291,11 @@ export class GoogleSpreadsheet {
 		return forceArray(data.entry).map((entry, i): SpreadsheetRow => new SpreadsheetRow(this, entry, entriesXML[i]));
 	}
 
+	/**
+	 * Adds a row in the specified worksheet
+	 * @param worksheetID The worksheet id
+	 * @param rowData The row data to add
+	 */
 	public async addRow(worksheetID: number, rowData): Promise<SpreadsheetRow> {
 		const dataXML = ['<entry xmlns="http://www.w3.org/2005/Atom" xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">'];
 
@@ -235,6 +311,11 @@ export class GoogleSpreadsheet {
 		return new SpreadsheetRow(this, data, entriesXML[0]);
 	}
 
+	/**
+	 * Get cells from the specified worksheet
+	 * @param worksheetID The worksheet id
+	 * @param options The cells query
+	 */
 	public async getCells(worksheetID: number, options: CellsQuery = {}): Promise<SpreadsheetCell[]> {
 		const { data } = await this.makeFeedRequest(['cells', this.spreadsheetKey, worksheetID], 'GET', options);
 		if (!data) throw new Error('No response to getCells call');
@@ -242,6 +323,12 @@ export class GoogleSpreadsheet {
 		return forceArray(data['entry']).map((entry): SpreadsheetCell => new SpreadsheetCell(this, this.spreadsheetKey, worksheetID, entry));
 	}
 
+	/**
+	 * Performs all http requests to google sheets
+	 * @param urlParams The url params
+	 * @param method The http method
+	 * @param queryOrData The query or data to send
+	 */
 	public async makeFeedRequest(urlParams: string | (string | number)[], method: HTTP_METHODS, queryOrData: string | CellsQuery | APIRowQuery): Promise<{xml: string, data: any}> {
 		let url;
 		let body: string | null = null;

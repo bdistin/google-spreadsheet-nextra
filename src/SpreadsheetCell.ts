@@ -2,20 +2,69 @@ import { xmlSafeValue, forceArray } from './util';
 
 import type { GoogleSpreadsheet } from './GoogleSpreadsheet';
 
+/**
+ * Represents a cell in a given worksheet for the connected spreadsheet
+ */
 export class SpreadsheetCell {
 
+	/**
+	 * The google spreadsheet this belongs to
+	 */
 	private spreadsheet: GoogleSpreadsheet;
+
+	/**
+	 * The batch id
+	 */
 	private batchID: string;
+
+	/**
+	 * The worksheet id
+	 */
 	private worksheetID: number;
+
+	/**
+	 * The spreadsheet key
+	 */
 	private spreadsheetKey: string;
+
+	/**
+	 * The id for this cell
+	 */
 	private id: string;
+
+	/**
+	 * The links for this cell
+	 */
 	private links: Map<string, string> = new Map();
+
+	/**
+	 * The formula stored in this cell
+	 */
 	private _formula: string;
+
+	/**
+	 * The numeric value of this cell
+	 */
 	private _numericValue: number;
+
+	/**
+	 * The actual value of this cell
+	 */
 	private _value: string;
+
+	/**
+	 * If this cell needs to be synced back to google sheets
+	 */
 	private _needsSave = false;
 
+	/**
+	 * The row number for this cell
+	 */
 	public row: number;
+
+	/**
+	 * The column number for this cell
+	 */
 	public col: number;
 
 	public constructor(spreadsheet: GoogleSpreadsheet, spreadsheetKey: string, worksheetID: number, data) {
@@ -42,18 +91,31 @@ export class SpreadsheetCell {
 		this.updateValuesFromResponseData(data);
 	}
 
+	/**
+	 * The id for this cell
+	 */
 	public getID(): string {
 		return this.id || `https://spreadsheets.google.com/feeds/cells/${this.spreadsheetKey}/${this.worksheetID}/${this.batchID}`;
 	}
 
+	/**
+	 * The edit link for this cell
+	 */
 	public getEdit(): string {
 		return this.links.get('edit') || this.getID().replace(this.batchID, `private/full/${this.batchID}`);
 	}
 
+	/**
+	 * The link to this cell
+	 */
 	public getSelf(): string {
 		return this.links.get('edit') || this.getID().replace(this.batchID, `private/full/${this.batchID}`);
 	}
 
+	/**
+	 * Gets the xml for this cell
+	 * @param link The link
+	 */
 	public getXML(link: string): string {
 		this._needsSave = false;
 		return [
@@ -67,6 +129,10 @@ export class SpreadsheetCell {
 		].join('\n');
 	}
 
+	/**
+	 * Updates this cell from the response data
+	 * @param data The data from the response
+	 */
 	public updateValuesFromResponseData(data): void {
 		// formula value
 		// eslint-disable-next-line dot-notation
@@ -84,15 +150,25 @@ export class SpreadsheetCell {
 		this._value = data['gs:cell']['_'] || '';
 	}
 
+	/**
+	 * Sets the value of this cell
+	 * @param value The data you want the value to be
+	 */
 	public async setValue(value): Promise<void> {
 		this.value = value;
 		await this.save();
 	}
 
+	/**
+	 * Gets the value of this cell
+	 */
 	public get value(): string {
 		return this._needsSave ? '*SAVE TO GET NEW VALUE*' : this._value;
 	}
 
+	/**
+	 * Allows you to set the value of this cell
+	 */
 	public set value(val) {
 		if (!val) {
 			this._clearValue();
@@ -116,10 +192,16 @@ export class SpreadsheetCell {
 		}
 	}
 
+	/**
+	 * Gets the formula of this cell
+	 */
 	public get formula(): string {
 		return this._formula;
 	}
 
+	/**
+	 * Allows you to set the value of the formula for this cell
+	 */
 	public set formula(val) {
 		if (!val) {
 			this._clearValue();
@@ -132,11 +214,17 @@ export class SpreadsheetCell {
 		this._formula = val;
 	}
 
+	/**
+	 * Gets the numeric value of this cell
+	 */
 	// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 	public get numericValue() {
 		return this._numericValue;
 	}
 
+	/**
+	 * Sets the numeric value of this cell
+	 */
 	public set numericValue(val: string | number) {
 		if (val === undefined || val === null) {
 			this._clearValue();
@@ -151,10 +239,16 @@ export class SpreadsheetCell {
 		this._formula = undefined;
 	}
 
+	/**
+	 * Makes the value safe for serializing to xml
+	 */
 	public get valueForSave(): string {
 		return xmlSafeValue(this._formula || this._value);
 	}
 
+	/**
+	 * Saves changes to the value to google sheets
+	 */
 	public async save(): Promise<void> {
 		this._needsSave = false;
 
@@ -171,10 +265,16 @@ export class SpreadsheetCell {
 		this.updateValuesFromResponseData(data);
 	}
 
+	/**
+	 * Deletes the data from this cell
+	 */
 	public async del(): Promise<void> {
 		await this.setValue('');
 	}
 
+	/**
+	 * Clears the values of this cell
+	 */
 	private _clearValue(): void {
 		this._formula = undefined;
 		this._numericValue = undefined;
