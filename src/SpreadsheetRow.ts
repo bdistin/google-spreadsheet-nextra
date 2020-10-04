@@ -2,10 +2,24 @@ import { xmlSafeColumnName, forceArray, xmlSafeValue } from './util';
 
 import type { GoogleSpreadsheet } from './GoogleSpreadsheet';
 
+/**
+ * Represents a row in a worksheet
+ */
 export class SpreadsheetRow extends Map {
 
+	/**
+	 * The spreadsheet this belongs to
+	 */
 	private spreadsheet: GoogleSpreadsheet;
+
+	/**
+	 * The xml value of this row
+	 */
 	private xml: string;
+
+	/**
+	 * The links for this row
+	 */
 	private links = new Map<string, string>();
 
 	public constructor(spreadsheet: GoogleSpreadsheet, data: any, xml: string) {
@@ -23,6 +37,9 @@ export class SpreadsheetRow extends Map {
 		}
 	}
 
+	/**
+	 * Saves changes to this row
+	 */
 	public async save(): Promise<void> {
 		let dataXML = this.xml.replace('<entry>', '<entry xmlns=\'http://www.w3.org/2005/Atom\' xmlns:gsx=\'http://schemas.google.com/spreadsheets/2006/extended\'>');
 		for (const [key, value] of this) {
@@ -35,6 +52,9 @@ export class SpreadsheetRow extends Map {
 		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'PUT', dataXML);
 	}
 
+	/**
+	 * Deletes this row
+	 */
 	public async del(): Promise<void> {
 		await this.spreadsheet.makeFeedRequest(this.links.get('edit'), 'DELETE', null);
 	}
