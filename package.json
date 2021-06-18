@@ -19,7 +19,7 @@
   "license": "MIT",
   "devDependencies": {
     "@ava/typescript": "^1.1.1",
-    "@types/node": "^15.12.2",
+    "@types/node": "^15.12.3",
     "@types/node-fetch": "^2.5.10",
     "@types/xml2js": "^0.4.5",
     "@typescript-eslint/eslint-plugin": "4.27.0",
